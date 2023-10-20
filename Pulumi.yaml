@@ -1,7 +1,4 @@
 name: iac-pulumi
 runtime:
   name: python
-  options:
-    virtualenv: venv
 description: Creating AWS resources using Pulumi
-
