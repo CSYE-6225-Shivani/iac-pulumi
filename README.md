@@ -6,29 +6,41 @@
 - AWS account with an organization - Add 2 accounts (dev & demo) in the organization and create admin users for each, generate AWS Access & Secret keys for both
 - AWS CLI
 - AWS configure setup from aws cli(profile for dev and demo accounts)
-         ```aws configure –profile=dev
-            aws configure –profile=demo```
+
+         -> aws configure –profile=dev
+         -> aws configure –profile=demo
 - Add access key, secret key, and nearest region here to configure your profiles
 - Now to work under any profile, pass this variable first:
+
         - Mac:
-          ```export AWS_PROFILE=<dev/demo>```
+          export AWS_PROFILE=<dev/demo>
+
         - Windows:
-          ```setx AWS_PROFILE <dev/demo>```
+          setx AWS_PROFILE <dev/demo>
 
 
 ## STEPS TO FOLLOW
 - Clone the repo - git clone <link>
 - Check whether pulumi is installed or not - pulumi version
-- Check available stacks - pulumi stack ls
+- Check available stacks 
+       
+        pulumi stack ls
 - If no stacks are available, create one using below command and then follow along:
-        - ```pulumi new aws-python```
+
+        pulumi new aws-python
 - Change which profile to build your stack in using below command:
-        - ```pulumi config set aws:profile <dev/demo>```
+        
+        pulumi config set aws:profile <dev/demo>
 - Select a stack from multiple stacks:
-        - ```pulumi stack select <name>```
+        
+        pulumi stack select <name>
 - To change any of the variables defined in the pulumi config, use below command:
-     - pulumi config set <variable_name> <value>
+
+
+       pulumi config set <variable_name> <value>
+
 - As of now, we have following variables defined in our pulumi config file:
+
         - asg_tag
         - delete_on_termination
         - ec2_tag
@@ -58,6 +70,8 @@
         - vpc_tag_name
 
 - Once everything look okay, run below command to build your infrastructure:
-        - ```pulumi up```
+        
+       pulumi up
 - To destroy everything, run below command:
-        - ```pulumi destroy```
+        
+       pulumi destroy
