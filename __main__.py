@@ -27,6 +27,7 @@ ingress_port_4 = config.require("ingress_port_4")
 egress_port = config.require("egress_port")
 egress_cidr = config.require("egress_cidr")
 delete_on_termination = config.require("delete_on_termination")
+disable_api_termination = config.require("disable_api_termination")
 volume_size = config.require("volume_size")
 volume_type = config.require("volume_type")
 PUBLIC_SUBNETS = [public_subnet1, public_subnet2, public_subnet3]
@@ -152,20 +153,20 @@ application_sg = aws.ec2.SecurityGroup("application_security_group",
     })
 
 root_block_device = aws.ec2.InstanceRootBlockDeviceArgs(
-    volume_size=volume_size,  # Root Volume Size: 25 GB
-    volume_type=volume_type,  # Root Volume Type: General Purpose SSD (gp2)
-    delete_on_termination=True,  # EBS volume is terminated with the EC2 instance
+    volume_size=volume_size,  # Root Volume Size
+    volume_type=volume_type,  # Root Volume Type
+    delete_on_termination=delete_on_termination,
 )
 
 # Create an EC2 instance
 EC2_instance = aws.ec2.Instance("my-instance",
-    ami=instance_ami,  # Specify your custom AMI ID
+    ami=instance_ami,  # custom AMI ID
     key_name=key_name,
     instance_type=instance_type,
     vpc_security_group_ids=[application_sg.id],  # Attach the security group
-    subnet_id=public_subnet.id,  # Specify the subnet ID where you want to launch the instance
+    subnet_id=public_subnet.id,  # Specify the subnet ID
     root_block_device= root_block_device,
-    disable_api_termination=False,  # Protect against accidental termination: No
+    disable_api_termination=disable_api_termination,  # Protect against accidental termination
     tags={
         "Name": ec2_tag,
     },

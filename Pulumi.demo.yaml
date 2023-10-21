@@ -28,4 +28,4 @@ config:
   iac-pulumi:volume_type: gp2
   iac-pulumi:vpc_cidr_block: 10.0.0.0/16
   iac-pulumi:vpc_tag_name: csye6225-vpc
-
+  iac-pulumi:disable_api_termination: "False"
