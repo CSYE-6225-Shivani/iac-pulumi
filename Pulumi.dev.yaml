@@ -3,6 +3,7 @@ config:
   aws:region: us-west-1
   iac-pulumi:asg_tag: csye6225-application-sg
   iac-pulumi:delete_on_termination: "True"
+  iac-pulumi:disable_api_termination: "False"
   iac-pulumi:ec2_tag: csye6225-ec2
   iac-pulumi:egress_cidr: 0.0.0.0/0
   iac-pulumi:egress_port: "0"
@@ -23,9 +24,22 @@ config:
   iac-pulumi:public_subnet1: 10.0.0.0/24
   iac-pulumi:public_subnet2: 10.0.1.0/24
   iac-pulumi:public_subnet3: 10.0.2.0/24
+  iac-pulumi:rds_allocated_storage: "20"
   iac-pulumi:sg_cidr: 0.0.0.0/0
   iac-pulumi:volume_size: "25"
   iac-pulumi:volume_type: gp2
   iac-pulumi:vpc_cidr_block: 10.0.0.0/16
   iac-pulumi:vpc_tag_name: csye6225-vpc
-  iac-pulumi:disable_api_termination: "False"
+  iac-pulumi:rds_engine: postgres
+  iac-pulumi:rds_engine_version: "15.3"
+  iac-pulumi:rds_ingress_port_1: "5432"
+  iac-pulumi:rds_instance_class: db.t3.micro
+  iac-pulumi:rds_multi_az: "False"
+  iac-pulumi:rds_name: csye6225
+  iac-pulumi:rds_password: cloudisfantastic!
+  iac-pulumi:rds_storage_type: gp3
+  iac-pulumi:rds_tag: csye6225-database-sg
+  iac-pulumi:rds_username: csye6225
+  iac-pulumi:userdata_group: csye6225
+  iac-pulumi:userdata_user: csye6225
+  iac-pulumi-test:parameter_group_tag: csye6225-rds-pg
