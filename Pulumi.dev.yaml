@@ -42,4 +42,4 @@ config:
   iac-pulumi:rds_username: csye6225
   iac-pulumi:userdata_group: csye6225
   iac-pulumi:userdata_user: csye6225
-  iac-pulumi-test:parameter_group_tag: csye6225-rds-pg
+  iac-pulumi:parameter_group_tag: csye6225-rds-pg
