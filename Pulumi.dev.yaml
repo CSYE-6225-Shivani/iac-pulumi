@@ -15,7 +15,7 @@ config:
   iac-pulumi:ingress_port_2: "80"
   iac-pulumi:ingress_port_3: "443"
   iac-pulumi:ingress_port_4: "5000"
-  iac-pulumi:instance_ami: ami-0ca737a36f2e583f7
+  iac-pulumi:instance_ami: ami-0fac3dfc3f11648d5
   iac-pulumi:instance_type: t2.micro
   iac-pulumi:key_name: aws-dev-keypair
   iac-pulumi:parameter_group_tag: csye6225-rds-pg
