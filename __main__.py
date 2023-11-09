@@ -258,6 +258,7 @@ $(sudo systemctl start webapp)
 $(sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c file:/opt/amazon-cloudwatch-agent.json -s)
 $(sudo systemctl enable amazon-cloudwatch-agent)
 $(sudo systemctl start amazon-cloudwatch-agent)
+$(sudo rm -rf /opt/webapp/__pycache__/)
 '''
     return user_data
  
