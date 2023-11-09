@@ -250,6 +250,34 @@ root_block_device = aws.ec2.InstanceRootBlockDeviceArgs(
     delete_on_termination=delete_on_termination,
 )
 
+# Create IAM role for CloudWatch
+cloudwatch_role = aws.iam.Role("my-cloudwatch-role",
+    assume_role_policy="""{
+        "Version": "2012-10-17",
+        "Statement": [
+            {
+                "Action": "sts:AssumeRole",
+                "Effect": "Allow",
+                "Principal": {
+                    "Service": "ec2.amazonaws.com"
+                }
+            }
+        ]
+    }""",
+)
+
+# Attach CloudWatchAgentServer policy to cloudwatch_role
+
+policy_attachment = aws.iam.PolicyAttachment("my-cloudwatch-policy",
+    policy_arn="arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy",
+    roles=[cloudwatch_role.name],
+)
+
+# Create an IAM instance profile
+cloudwatch_instance_profile = aws.iam.InstanceProfile("my-cloudwatch-instance-profile",
+    role=cloudwatch_role.name,  # Associate the role with the instance profile
+)
+
 # Create an EC2 instance
 EC2_instance = aws.ec2.Instance("my-instance",
     ami=instance_ami,  # custom AMI ID
@@ -260,6 +288,7 @@ EC2_instance = aws.ec2.Instance("my-instance",
     root_block_device= root_block_device,
     user_data=generate_user_data,
     opts=pulumi.ResourceOptions(depends_on=[rds_instance]),
+    iam_instance_profile=cloudwatch_instance_profile.name,
     disable_api_termination=disable_api_termination,  # Protect against accidental termination
     tags={
         "Name": ec2_tag,
