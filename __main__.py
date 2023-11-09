@@ -240,6 +240,7 @@ $(sudo chmod 400 ${{ENV_FILE}})
 $(sudo chown -R {userdata_user}:{userdata_group} /opt/webapp)
 $(sudo chown {userdata_user}:{userdata_group} /opt/users.csv)
 $(sudo systemctl start webapp)
+$(sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c file:/opt/amazon-cloudwatch-agent.json -s)
 '''
     return user_data
  
