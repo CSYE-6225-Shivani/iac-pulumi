@@ -45,6 +45,9 @@ rds_storage_type = config.require("rds_storage_type")
 userdata_user = config.require("userdata_user")
 userdata_group = config.require("userdata_group")
 parameter_group_tag = config.require("parameter_group_tag")
+hosted_zone_id = config.require("hosted_zone_id")
+A_Record_name = config.require("A_Record_name")
+A_Record_TTL = config.require("A_Record_TTL")
 
 PUBLIC_SUBNETS = [public_subnet1, public_subnet2, public_subnet3]
 PRIVATE_SUBNETS = [private_subnet1, private_subnet2, private_subnet3]
@@ -294,3 +297,11 @@ EC2_instance = aws.ec2.Instance("my-instance",
         "Name": ec2_tag,
     },
 )
+
+A_Record = aws.route53.Record("A_Record",
+    zone_id=hosted_zone_id,
+    name=A_Record_name,
+    type="A",
+    ttl=A_Record_TTL,
+    opts=pulumi.ResourceOptions(depends_on=[EC2_instance]),
+    records=[EC2_instance.public_ip])
