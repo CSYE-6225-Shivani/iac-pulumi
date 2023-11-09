@@ -1,6 +1,9 @@
 import pulumi
 import pulumi_aws as aws
 
+
+# Get data from pulumi profile config files
+
 config = pulumi.Config()
 cidr_block = config.require("vpc_cidr_block")
 key_name = config.require("key_name")
@@ -45,22 +48,31 @@ rds_storage_type = config.require("rds_storage_type")
 userdata_user = config.require("userdata_user")
 userdata_group = config.require("userdata_group")
 parameter_group_tag = config.require("parameter_group_tag")
+hosted_zone_id = config.require("hosted_zone_id")
+A_Record_name = config.require("A_Record_name")
+A_Record_TTL = config.require("A_Record_TTL")
 
 PUBLIC_SUBNETS = [public_subnet1, public_subnet2, public_subnet3]
 PRIVATE_SUBNETS = [private_subnet1, private_subnet2, private_subnet3]
+
+# Get number of availability zones in the selected region to decide number of public & private subnets
+# Create 1 public and 1 private subnet in each AZ and do not create more than 6 subnets in total -- Requirement
 available = aws.get_availability_zones(state="available")
 public_subnets = []
 private_subnets = []
 
-
+# Creating VPC
 myvpc = aws.ec2.Vpc("myvpc",
     cidr_block=cidr_block,
     tags={
         "Name": vpc_tag_name,
     })
 
+# Assign Availability Zone number to a variable called number_of_az
 number_of_az = len(available.names)
 
+# Condition to decide how many AZ to create. For eg: If there are total of 2 AZ for a region, then 1 public & 1 private subnet will be created 
+# in each AZ - Total 4 subnets (2 public and 2 private)
 if number_of_az >= 3:
     for i in range(3):
         public_subnet = aws.ec2.Subnet(f"public-subnet-{i}",
@@ -90,12 +102,14 @@ else:
         public_subnets.append(public_subnet)
         private_subnets.append(private_subnet)
 
+# Create internet gateway to provide internet access
 mygw = aws.ec2.InternetGateway("mygw",
     vpc_id=myvpc.id,
     tags={
         "Name": igw_tag_name,
     })
 
+# Creating public route table
 public_rt = aws.ec2.RouteTable("PublicRouteTable",
     vpc_id=myvpc.id,
     routes=[
@@ -108,12 +122,14 @@ public_rt = aws.ec2.RouteTable("PublicRouteTable",
         "Name": public_rt_tag_name,
     })
 
+# Creating private route table
 private_rt = aws.ec2.RouteTable("PrivateRouteTable",
     vpc_id=myvpc.id,
     tags={
         "Name": private_rt_tag_name,
     })
 
+# Associate public subnets with public route table and private subnets with private route table
 for i, public_subnet in enumerate(public_subnets):
     aws.ec2.RouteTableAssociation(f"public-subnet-association-{i}",
                                   subnet_id=public_subnet.id,
@@ -124,7 +140,7 @@ for i, private_subnet in enumerate(private_subnets):
                                   subnet_id=private_subnet.id,
                                   route_table_id=private_rt.id)
     
-
+# Creating security group for webapp
 application_sg = aws.ec2.SecurityGroup("application_security_group",
     description="Allow TLS inbound traffic",
     vpc_id=myvpc.id,
@@ -168,7 +184,7 @@ application_sg = aws.ec2.SecurityGroup("application_security_group",
         "Name": asg_tag,
     })
 
-
+# Creating security group for RDS/database
 database_sg = aws.ec2.SecurityGroup("database_security_group",
     description="Allow PostgreSQL traffic",
     vpc_id=myvpc.id,
@@ -191,22 +207,24 @@ database_sg = aws.ec2.SecurityGroup("database_security_group",
         "Name": rds_tag,
     })
 
-
+# Creating RDS Parameter Group to attach with RDS
 db_parameter_group = aws.rds.ParameterGroup("db-parameter-group",
     family="postgres15",
     tags={
         "Name" : parameter_group_tag,
     })
 
-
+# Create a list of private subnet ids
 private_subnet_ids = [subnet.id for subnet in private_subnets]
+
+# Create RDS Subnet group to assign private subnet ids to RDS
 rds_subnet_group = aws.rds.SubnetGroup("rds_subnet_group",
                                        subnet_ids=private_subnet_ids,
                                        description="csye6225 RDS Subnet Group",
                                        name="csye6225-rds-subnet-group")
 
 
-
+# Create RDS instance in private subnet
 rds_instance = aws.rds.Instance("rds_instance",
     db_name=rds_name,
     allocated_storage=rds_allocated_storage,
@@ -224,7 +242,7 @@ rds_instance = aws.rds.Instance("rds_instance",
     vpc_security_group_ids = [database_sg.id])
 
 
-
+# Define user data to manipulate data on instance when it initializes for the first time
 def user_data(endpoint):
     user_data = f'''#!/bin/bash
 ENV_FILE="/opt/webapp.properties"
@@ -237,20 +255,50 @@ $(sudo chmod 400 ${{ENV_FILE}})
 $(sudo chown -R {userdata_user}:{userdata_group} /opt/webapp)
 $(sudo chown {userdata_user}:{userdata_group} /opt/users.csv)
 $(sudo systemctl start webapp)
+$(sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c file:/opt/amazon-cloudwatch-agent.json -s)
+$(sudo systemctl enable amazon-cloudwatch-agent)
+$(sudo systemctl start amazon-cloudwatch-agent)
 '''
     return user_data
  
-
+# Store user data to a variable and call function user_data
 generate_user_data = rds_instance.endpoint.apply(user_data)
 
-
+# Create instance root block device
 root_block_device = aws.ec2.InstanceRootBlockDeviceArgs(
     volume_size=volume_size,  # Root Volume Size
     volume_type=volume_type,  # Root Volume Type
     delete_on_termination=delete_on_termination,
 )
 
-# Create an EC2 instance
+# Create IAM role for CloudWatch
+cloudwatch_role = aws.iam.Role("my-cloudwatch-role",
+    assume_role_policy="""{
+        "Version": "2012-10-17",
+        "Statement": [
+            {
+                "Action": "sts:AssumeRole",
+                "Effect": "Allow",
+                "Principal": {
+                    "Service": "ec2.amazonaws.com"
+                }
+            }
+        ]
+    }""",
+)
+
+# Attach CloudWatchAgentServer policy to cloudwatch_role
+policy_attachment = aws.iam.PolicyAttachment("my-cloudwatch-policy",
+    policy_arn="arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy",
+    roles=[cloudwatch_role.name],
+)
+
+# Create an IAM instance profile
+cloudwatch_instance_profile = aws.iam.InstanceProfile("my-cloudwatch-instance-profile",
+    role=cloudwatch_role.name,  # Associate the role with the instance profile
+)
+
+# Create an EC2 instance with specified AMI, user data and many other important specifications
 EC2_instance = aws.ec2.Instance("my-instance",
     ami=instance_ami,  # custom AMI ID
     key_name=key_name,
@@ -260,8 +308,18 @@ EC2_instance = aws.ec2.Instance("my-instance",
     root_block_device= root_block_device,
     user_data=generate_user_data,
     opts=pulumi.ResourceOptions(depends_on=[rds_instance]),
+    iam_instance_profile=cloudwatch_instance_profile.name,
     disable_api_termination=disable_api_termination,  # Protect against accidental termination
     tags={
         "Name": ec2_tag,
     },
 )
+
+# Create A record for EC2 instance - point public id of the instance to a DNS
+A_Record = aws.route53.Record("A_Record",
+    zone_id=hosted_zone_id,
+    name=A_Record_name,
+    type="A",
+    ttl=A_Record_TTL,
+    opts=pulumi.ResourceOptions(depends_on=[EC2_instance]),
+    records=[EC2_instance.public_ip])

@@ -1,5 +1,25 @@
 # iac-pulumi
 ## INFRASTRUCTURE AS CODE USING PULUMI
+This code creates infrastructure based on profile and AWS information provided in its config file.
+
+Below are the resources that gets created through this code:
+
+            1. Virtual Private Cloud
+            2. Internet Gateway
+            3. Private Route Table
+            4. Public Route Table
+            5. Private subnets associated with Private Route Table
+            6. Public subnets associated with Public Route Table
+            7. CloudWatch Role
+            8. CloudWatch Policy
+            9. CloudWatch Instance Profile
+            10. Application Security Group
+            11. Database/RDS Security Group
+            12. Database Parameter Group
+            13. RDS Subnet Group (private subnets)
+            14. RDS instance associated with DB Paramater Group, DB Security Group, and RDS Subnet Group
+            15. EC2 Instance
+            16. A Record for EC2 instance
 
 ## PREREQUISITES FOR RUNNING LOCALLY:
 - Pulumi: https://www.pulumi.com/docs/install/
@@ -41,11 +61,16 @@
 
 - As of now, we have following variables defined in our pulumi config file:
 
+        - aws:profile
+        - aws:region
+        - A_Record_TTL
+        - A_Record_name
         - asg_tag
         - delete_on_termination
         - ec2_tag
         - egress_cidr
         - egress_port
+        - hosted_zone_id
         - igw_tag_name
         - ingress_port_1
         - ingress_port_2
@@ -72,6 +97,7 @@
 - Once everything look okay, run below command to build your infrastructure:
         
        pulumi up
+
 - To destroy everything, run below command:
         
        pulumi destroy
