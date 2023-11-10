@@ -38,6 +38,7 @@ parameter_group_tag = config.require("parameter_group_tag")
 rds_ingress_port_1 = config.require("rds_ingress_port_1")
 rds_username = config.require("rds_username")
 rds_password = config.require("rds_password")
+rds_database = config.require("rds_database")
 rds_name = config.require("rds_name")
 rds_engine = config.require("rds_engine")
 rds_engine_version = config.require("rds_engine_version")
@@ -249,11 +250,13 @@ ENV_FILE="/opt/webapp.properties"
 echo "RDS_HOSTNAME={endpoint}" > ${{ENV_FILE}}
 echo "RDS_USERNAME={rds_username}" >> ${{ENV_FILE}}
 echo "RDS_PASSWORD={rds_password}" >> ${{ENV_FILE}}
-echo "DATABASE_URL=postgresql://{rds_username}:{rds_password}@{endpoint}/webapp" >> ${{ENV_FILE}}
+echo "RDS_DATABASE={rds_database}" >> ${{ENV_FILE}}
+echo "DATABASE_URL=postgresql://{rds_username}:{rds_password}@{endpoint}/{rds_database}" >> ${{ENV_FILE}}
 $(sudo chown {userdata_user}:{userdata_group} ${{ENV_FILE}})
 $(sudo chmod 400 ${{ENV_FILE}})
 $(sudo chown -R {userdata_user}:{userdata_group} /opt/webapp)
 $(sudo chown {userdata_user}:{userdata_group} /opt/users.csv)
+$(sudo chown {userdata_user}:{userdata_group} /opt/webapp.log)
 $(sudo systemctl start webapp)
 $(sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c file:/opt/amazon-cloudwatch-agent.json -s)
 $(sudo systemctl enable amazon-cloudwatch-agent)

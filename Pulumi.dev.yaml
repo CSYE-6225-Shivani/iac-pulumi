@@ -15,7 +15,7 @@ config:
   iac-pulumi:ingress_port_2: "80"
   iac-pulumi:ingress_port_3: "443"
   iac-pulumi:ingress_port_4: "5000"
-  iac-pulumi:instance_ami: ami-0fac3dfc3f11648d5
+  iac-pulumi:instance_ami: ami-0187880c2e9c5e7db
   iac-pulumi:instance_type: t2.micro
   iac-pulumi:key_name: aws-dev-keypair
   iac-pulumi:parameter_group_tag: csye6225-rds-pg
@@ -29,6 +29,7 @@ config:
   iac-pulumi:public_subnet2: 10.0.1.0/24
   iac-pulumi:public_subnet3: 10.0.2.0/24
   iac-pulumi:rds_allocated_storage: "20"
+  iac-pulumi:rds_database: webapp
   iac-pulumi:rds_engine: postgres
   iac-pulumi:rds_engine_version: "15.3"
   iac-pulumi:rds_ingress_port_1: "5432"
