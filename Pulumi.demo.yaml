@@ -29,6 +29,7 @@ config:
   iac-pulumi:public_subnet2: 10.0.1.0/24
   iac-pulumi:public_subnet3: 10.0.2.0/24
   iac-pulumi:rds_allocated_storage: "20"
+  iac-pulumi:rds_database: webapp
   iac-pulumi:rds_engine: postgres
   iac-pulumi:rds_engine_version: "15.3"
   iac-pulumi:rds_ingress_port_1: "5432"
