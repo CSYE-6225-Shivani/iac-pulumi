@@ -262,6 +262,7 @@ $(sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch
 $(sudo systemctl enable amazon-cloudwatch-agent)
 $(sudo systemctl start amazon-cloudwatch-agent)
 $(sudo rm -rf /opt/webapp/__pycache__/)
+$(sudo chown {userdata_user}:{userdata_group} /opt/amazon-cloudwatch-agent.json)
 '''
     return user_data
  
