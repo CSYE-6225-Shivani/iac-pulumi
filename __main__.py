@@ -1,5 +1,6 @@
 import pulumi
 import pulumi_aws as aws
+import base64
 
 
 # Get data from pulumi profile config files
@@ -52,6 +53,12 @@ parameter_group_tag = config.require("parameter_group_tag")
 hosted_zone_id = config.require("hosted_zone_id")
 A_Record_name = config.require("A_Record_name")
 A_Record_TTL = config.require("A_Record_TTL")
+lb_sg_tag = config.require("lb_sg_tag")
+launch_template_public_ip = config.require("launch_template_public_ip")
+asg_desired = config.require("asg_desired")
+asg_max = config.require("asg_max")
+asg_min = config.require("asg_min")
+asg_cooldown = config.require("asg_cooldown")
 
 PUBLIC_SUBNETS = [public_subnet1, public_subnet2, public_subnet3]
 PRIVATE_SUBNETS = [private_subnet1, private_subnet2, private_subnet3]
@@ -140,19 +147,12 @@ for i, private_subnet in enumerate(private_subnets):
     aws.ec2.RouteTableAssociation(f"private-subnet-association-{i}",
                                   subnet_id=private_subnet.id,
                                   route_table_id=private_rt.id)
-    
-# Creating security group for webapp
-application_sg = aws.ec2.SecurityGroup("application_security_group",
-    description="Allow TLS inbound traffic",
+
+# Creating Load Balancer Security Group
+load_balancer_sg = aws.ec2.SecurityGroup("load_balancer_security_group",
+    description="Security group for load balancer",
     vpc_id=myvpc.id,
     ingress=[
-        aws.ec2.SecurityGroupIngressArgs(
-            description="Allow traffic on port 22",
-            from_port=ingress_port_1,
-            to_port=ingress_port_1,
-            protocol="tcp",
-            cidr_blocks=[sg_cidr],
-            ),
         aws.ec2.SecurityGroupIngressArgs(
             description="Allow traffic on port 80",
             from_port=ingress_port_2,
@@ -167,12 +167,36 @@ application_sg = aws.ec2.SecurityGroup("application_security_group",
             protocol="tcp",
             cidr_blocks=[sg_cidr],
             ),
+            ],
+    egress=[aws.ec2.SecurityGroupEgressArgs(
+        from_port=ingress_port_4,
+        to_port=ingress_port_4,
+        protocol="tcp",
+        cidr_blocks=[egress_cidr],
+    )],
+    tags={
+        "Name": lb_sg_tag,
+    })
+  
+# Creating security group for webapp
+application_sg = aws.ec2.SecurityGroup("application_security_group",
+    description="Security group for webapp",
+    vpc_id=myvpc.id,
+    #opts=pulumi.ResourceOptions(depends_on=[load_balancer_sg])
+    ingress=[
+        aws.ec2.SecurityGroupIngressArgs(
+            description="Allow traffic on port 22",
+            from_port=ingress_port_1,
+            to_port=ingress_port_1,
+            protocol="tcp",
+            security_groups=[load_balancer_sg.id],
+            ),
         aws.ec2.SecurityGroupIngressArgs(
             description="Allow traffic on port 5000",
             from_port=ingress_port_4,
             to_port=ingress_port_4,
             protocol="tcp",
-            cidr_blocks=[sg_cidr],
+            security_groups=[load_balancer_sg.id],
             ),
         ],
     egress=[aws.ec2.SecurityGroupEgressArgs(
@@ -189,6 +213,7 @@ application_sg = aws.ec2.SecurityGroup("application_security_group",
 database_sg = aws.ec2.SecurityGroup("database_security_group",
     description="Allow PostgreSQL traffic",
     vpc_id=myvpc.id,
+    #opts=pulumi.ResourceOptions(depends_on=[application_sg])
     ingress=[
         aws.ec2.SecurityGroupIngressArgs(
             description="Allow traffic on port 5432",
@@ -269,6 +294,9 @@ $(sudo chown {userdata_user}:{userdata_group} /opt/amazon-cloudwatch-agent.json)
 # Store user data to a variable and call function user_data
 generate_user_data = rds_instance.endpoint.apply(user_data)
 
+# encode user data to use it in launch template
+encoded_user_data = generate_user_data.apply(lambda data: base64.b64encode(data.encode()).decode())
+
 # Create instance root block device
 root_block_device = aws.ec2.InstanceRootBlockDeviceArgs(
     volume_size=volume_size,  # Root Volume Size
@@ -301,6 +329,53 @@ policy_attachment = aws.iam.PolicyAttachment("my-cloudwatch-policy",
 # Create an IAM instance profile
 cloudwatch_instance_profile = aws.iam.InstanceProfile("my-cloudwatch-instance-profile",
     role=cloudwatch_role.name,  # Associate the role with the instance profile
+)
+
+# Creating a launch template for auto scaling
+autoscaling_launch_template = aws.ec2.LaunchTemplate("autoscaling-launch-template",
+    iam_instance_profile=aws.ec2.LaunchTemplateIamInstanceProfileArgs(
+        name=cloudwatch_instance_profile.name
+    ),
+    image_id=instance_ami,
+    instance_type=instance_type,
+    key_name=key_name,
+    network_interfaces=[aws.ec2.LaunchTemplateNetworkInterfaceArgs(
+        associate_public_ip_address=launch_template_public_ip,
+        subnet_id=public_subnet.id,
+        security_groups=[application_sg.id],
+    )],
+    tag_specifications=[aws.ec2.LaunchTemplateTagSpecificationArgs(
+        resource_type="instance",
+        tags={
+            "test": "xyz",
+            "name" : "csye6225", 
+        },
+    )],
+    user_data=encoded_user_data,
+    )
+
+auto_scaling_group = aws.autoscaling.Group("auto-scaling-group",
+    desired_capacity=asg_desired,
+    max_size=asg_max,
+    min_size=asg_min,
+    opts=pulumi.ResourceOptions(depends_on=[autoscaling_launch_template]),
+    launch_template=aws.autoscaling.GroupLaunchTemplateArgs(
+        id=autoscaling_launch_template.id,
+        version="$Latest",
+    ),
+    default_cooldown=asg_cooldown,
+    tags=[
+        {
+            "key": "Name",
+            "value": "csye6225-asg",
+            "propagate_at_launch": True,
+        },
+        {
+            "key": "Application",
+            "value": "webapp",
+            "propagate_at_launch": True,
+        },
+    ],
 )
 
 # Create an EC2 instance with specified AMI, user data and many other important specifications

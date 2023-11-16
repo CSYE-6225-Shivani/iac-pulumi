@@ -3,6 +3,10 @@ config:
   aws:region: us-west-1
   iac-pulumi:A_Record_TTL: "60"
   iac-pulumi:A_Record_name: demo.shivanishah.me
+  iac-pulumi:asg_cooldown: "60"
+  iac-pulumi:asg_desired: "1"
+  iac-pulumi:asg_max: "3"
+  iac-pulumi:asg_min: "1"
   iac-pulumi:asg_tag: csye6225-application-sg
   iac-pulumi:delete_on_termination: "True"
   iac-pulumi:disable_api_termination: "False"
@@ -18,6 +22,8 @@ config:
   iac-pulumi:instance_ami: ami-0dfac44abaacc2aab
   iac-pulumi:instance_type: t2.micro
   iac-pulumi:key_name: aws-demo-keypair
+  iac-pulumi:launch_template_public_ip: "true"
+  iac-pulumi:lb_sg_tag: csye6225-load-balancer-sg
   iac-pulumi:parameter_group_tag: csye6225-rds-pg
   iac-pulumi:private_rt_tag_name: csye6225-private-rt
   iac-pulumi:private_subnet1: 10.0.100.0/24
