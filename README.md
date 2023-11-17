@@ -14,12 +14,23 @@ Below are the resources that gets created through this code:
             8. CloudWatch Policy
             9. CloudWatch Instance Profile
             10. Application Security Group
-            11. Database/RDS Security Group
-            12. Database Parameter Group
-            13. RDS Subnet Group (private subnets)
-            14. RDS instance associated with DB Paramater Group, DB Security Group, and RDS Subnet Group
-            15. EC2 Instance
-            16. A Record for EC2 instance
+            11. Load Balancer Security Group
+            12. Database/RDS Security Group
+            13. Database Parameter Group
+            14. RDS Subnet Group (private subnets)
+            15. RDS instance associated with DB Paramater Group, DB Security Group, and RDS Subnet Group
+            16. EC2 Instance
+            17. A Record for EC2 instance
+            18. Autoscaling launch template
+            19. Load Balancer
+            20. Load Balancer Target Group
+            21. Load Balancer Listener
+            22. Auto Scaling Group
+            23. Scale Up Policy
+            24. Scale Up Metric Alarm
+            25. Scale Down Policy
+            26. Scale Down Metric Alarm
+            
 
 ## PREREQUISITES FOR RUNNING LOCALLY:
 - Pulumi: https://www.pulumi.com/docs/install/
@@ -63,11 +74,18 @@ Below are the resources that gets created through this code:
 
         - aws:profile
         - aws:region
-        - A_Record_TTL
+        - A_Record_evalTargetHealth
         - A_Record_name
+        - asg_cooldown
+        - asg_desired
+        - asg_max
+        - asg_min
         - asg_tag
+        - asg_tag_key
+        - asg_tag_propagate_at_launch
+        - asg_tag_value
         - delete_on_termination
-        - ec2_tag
+        - device_name
         - egress_cidr
         - egress_port
         - hosted_zone_id
@@ -79,6 +97,21 @@ Below are the resources that gets created through this code:
         - instance_ami
         - instance_type
         - key_name
+        - key1
+        - launch_template_public_ip
+        - lb_listener_action_type
+        - lb_listener_port
+        - lb_listener_protocol
+        - lb_sg_tag
+        - lb_tag
+        - lb_tg_healthport
+        - lb_tg_interval
+        - lb_tg_path
+        - lb_tg_port
+        - lb_tg_protocol
+        - lb_tg_timeout
+        - lb_type
+        - parameter_group_tag
         - private_rt_tag_name
         - private_subnet1
         - private_subnet2
@@ -88,7 +121,39 @@ Below are the resources that gets created through this code:
         - public_subnet1
         - public_subnet2
         - public_subnet3
+        - rds_allocated_storage
+        - rds_database
+        - rds_engine
+        - rds_engine_version
+        - rds_ingress_port_1
+        - rds_instance_class
+        - rds_multi_az
+        - rds_name
+        - rds_password
+        - rds_storage_type
+        - rds_tag
+        - rds_username
+        - scale_down_type
+        - scale_up_scaling
+        - scale_up_type
+        - sd_metric_comparison
+        - sd_metric_eval_periods
+        - sd_metric_name
+        - sd_metric_namespace
+        - sd_metric_period
+        - sd_metric_statistic
+        - sd_metric_threshold
         - sg_cidr
+        - su_metric_comparison
+        - su_metric_eval_period
+        - su_metric_name
+        - su_metric_namespace
+        - su_metric_period
+        - su_metric_statistic
+        - su_metric_threshold
+        - userdata_group
+        - userdata_user
+        - value1
         - volume_size
         - volume_type
         - vpc_cidr_block

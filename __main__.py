@@ -60,6 +60,37 @@ device_name = config.require("device_name")
 key1 = config.require("key1")
 value1 = config.require("value1")
 lb_tag = config.require("lb_tag")
+lb_type = config.require("lb_type")
+A_Record_evalTargetHealth = config.require("A_Record_evalTargetHealth")
+asg_tag_key = config.require("asg_tag_key")
+asg_tag_propagate_at_launch = config.require("asg_tag_propagate_at_launch")
+asg_tag_value = config.require("asg_tag_value")
+lb_listener_action_type = config.require("lb_listener_action_type")
+lb_listener_port = config.require("lb_listener_port")
+lb_listener_protocol = config.require("lb_listener_protocol")
+lb_tg_interval = config.require("lb_tg_interval")
+lb_tg_path = config.require("lb_tg_path")
+lb_tg_port = config.require("lb_tg_port")
+lb_tg_protocol = config.require("lb_tg_protocol")
+lb_tg_timeout = config.require("lb_tg_timeout")
+scale_down_type = config.require("scale_down_type")
+scale_up_scaling = config.require("scale_up_scaling")
+scale_up_type = config.require("scale_up_type")
+sd_metric_comparison = config.require("sd_metric_comparison")
+sd_metric_eval_periods = config.require("sd_metric_eval_periods")
+sd_metric_name = config.require("sd_metric_name")
+sd_metric_namespace = config.require("sd_metric_namespace")
+sd_metric_period = config.require("sd_metric_period")
+sd_metric_statistic = config.require("sd_metric_statistic")
+sd_metric_threshold = config.require("sd_metric_threshold")
+su_metric_comparison = config.require("su_metric_comparison")
+su_metric_eval_period = config.require("su_metric_eval_period")
+su_metric_name = config.require("su_metric_name")
+su_metric_namespace = config.require("su_metric_namespace")
+su_metric_period = config.require("su_metric_period")
+su_metric_statistic = config.require("su_metric_statistic")
+su_metric_threshold = config.require("su_metric_threshold")
+lb_tg_healthport = config.require("lb_tg_healthport")
 
 PUBLIC_SUBNETS = [public_subnet1, public_subnet2, public_subnet3]
 PRIVATE_SUBNETS = [private_subnet1, private_subnet2, private_subnet3]
@@ -149,7 +180,7 @@ for i, private_subnet in enumerate(private_subnets):
                                   subnet_id=private_subnet.id,
                                   route_table_id=private_rt.id)
 
-# Creating Load Balancer Security Group
+# Creating Load Balancer Security Group to allow traffic from 80 and 443 ports and forward traffic to port 5000
 load_balancer_sg = aws.ec2.SecurityGroup("load_balancer_security_group",
     description="Security group for load balancer",
     vpc_id=myvpc.id,
@@ -295,7 +326,7 @@ $(sudo chown {userdata_user}:{userdata_group} /opt/amazon-cloudwatch-agent.json)
 # Store user data to a variable and call function user_data
 generate_user_data = rds_instance.endpoint.apply(user_data)
 
-# encode user data to use it in launch template
+# encode user data to use it in autoscaling launch template
 encoded_user_data = generate_user_data.apply(lambda data: base64.b64encode(data.encode()).decode())
 
 # Create IAM role for CloudWatch
@@ -358,36 +389,40 @@ autoscaling_launch_template = aws.ec2.LaunchTemplate("autoscaling-launch-templat
 # Create a list of public subnet ids
 public_subnet_ids = [subnet.id for subnet in public_subnets]
 
+# Create load balancer to balance load across instances
 load_balancer = aws.lb.LoadBalancer("webapp-alb",
-                                    load_balancer_type="application",
+                                    load_balancer_type=lb_type,
                                     security_groups=[load_balancer_sg.id],
                                     subnets = public_subnet_ids,
                                     tags={
                                         "Name" : lb_tag
                                     })
-
+# Create load balancer target group to attach instances to be load balanced by load balancer and to send requests to instances on port 5000
+# Add health check details to ensure that instances in the target group are healthy
 lb_target_group = aws.lb.TargetGroup("webapp-target-group",
-                                     port="5000",
-                                     protocol="HTTP",
+                                     port=lb_tg_port,
+                                     protocol=lb_tg_protocol,
                                      vpc_id=myvpc.id,
                                      health_check=aws.lb.TargetGroupHealthCheckArgs(
-                                         interval=30,
-                                         path="/healthz",
-                                         port="traffic-port",
-                                         protocol="HTTP",
-                                         timeout=10,
+                                         interval=lb_tg_interval,
+                                         path=lb_tg_path,
+                                         port=lb_tg_healthport,
+                                         protocol=lb_tg_protocol,
+                                         timeout=lb_tg_timeout,
                                      ))
-
+# Create load balancer listener group to enable listening through load balancer on port 80
 lb_listener = aws.lb.Listener("webapp-alb-listener",
                               load_balancer_arn=load_balancer.arn,
-                              port=80,
-                              protocol="HTTP",
+                              port=lb_listener_port,
+                              protocol=lb_listener_protocol,
                               default_actions=[aws.lb.ListenerDefaultActionArgs(
-                                  type="forward",
+                                  type=lb_listener_action_type,
                                   target_group_arn=lb_target_group.arn,
                               )],
                               )
 
+# Create autoscaling group using autoscaling launch template created earlier. Also defining minimum, maximum, and desired number of instances
+# to make sure that required number of healthy instances are always available at all times
 auto_scaling_group = aws.autoscaling.Group("auto-scaling-group",
     desired_capacity=asg_desired,
     max_size=asg_max,
@@ -401,52 +436,57 @@ auto_scaling_group = aws.autoscaling.Group("auto-scaling-group",
     default_cooldown=asg_cooldown,
     tags=[
         {
-            "key": "Name",
-            "value": "csye6225-asg-ec2",
-            "propagate_at_launch": True,
+            "key": asg_tag_key,
+            "value": asg_tag_value,
+            "propagate_at_launch": asg_tag_propagate_at_launch,
         },
     ],
 )
 
+# Define scale up policy - scale up by 1 instance
 scale_up_policy = aws.autoscaling.Policy("scale-up-policy",
-                                         scaling_adjustment=1,
-                                         adjustment_type="ChangeInCapacity",
+                                         scaling_adjustment=scale_up_scaling,
+                                         adjustment_type=scale_up_type,
                                          autoscaling_group_name=auto_scaling_group.name)
 
+# Uses scale up policy if this metric alarm triggers
+# scale_up_metric_alarm monitors CPU Utilization of an instance and triggers and alarm if it is >5%
 scale_up_metric_alarm = aws.cloudwatch.MetricAlarm("scale-up-metric-alarm",
-                                                   comparison_operator="GreaterThanThreshold",
-                                                   evaluation_periods=2,
-                                                   metric_name="CPUUtilization",
-                                                   namespace="AWS/EC2",
-                                                   period=120,
-                                                   statistic="Average",
-                                                   threshold=5,
+                                                   comparison_operator=su_metric_comparison,
+                                                   evaluation_periods=su_metric_eval_period,
+                                                   metric_name=su_metric_name,
+                                                   namespace=su_metric_namespace,
+                                                   period=su_metric_period,
+                                                   statistic=su_metric_statistic,
+                                                   threshold=su_metric_threshold,
                                                    dimensions={
                                                        "AutoScalingGroupName" : auto_scaling_group.name
                                                    },
                                                    alarm_description="This metric triggers if average EC2 CPU Utilization is more than 5%",
                                                    alarm_actions=[scale_up_policy.arn])
-
+# Define scale down policy - scale down by 1 instance
 scale_down_policy = aws.autoscaling.Policy("scale-down-policy",
                                            scaling_adjustment=-1,
-                                           adjustment_type="ChangeInCapacity",
+                                           adjustment_type=scale_down_type,
                                            autoscaling_group_name=auto_scaling_group.name)
 
+# Uses scale down policy if this metric alarm triggers
+# scale_down_metric_alarm monitors CPU Utilization of an instance and triggers an alarm if it is <5%
 scale_down_metric_alarm = aws.cloudwatch.MetricAlarm("scale-down-metric-alarm",
-                                                     comparison_operator="LessThanThreshold",
-                                                     evaluation_periods=2,
-                                                     metric_name="CPUUtilization",
-                                                     namespace="AWS/EC2",
-                                                     period=120,
-                                                     statistic="Average",
-                                                     threshold=3,
+                                                     comparison_operator=sd_metric_comparison,
+                                                     evaluation_periods=sd_metric_eval_periods,
+                                                     metric_name=sd_metric_name,
+                                                     namespace=sd_metric_namespace,
+                                                     period=sd_metric_period,
+                                                     statistic=sd_metric_statistic,
+                                                     threshold=sd_metric_threshold,
                                                      dimensions={
                                                          "AutoScalingGroupName" : auto_scaling_group.name
                                                      },
                                                      alarm_description="This metric triggers if average EC2 CPU Utilization is less than 3%",
                                                      alarm_actions=[scale_down_policy.arn])
 
-# Create A record for EC2 instance - point public id of the instance to a DNS
+# Create A record for instances in load balancer - point a group of public ips to DNS
 A_Record = aws.route53.Record("A_Record",
     zone_id=hosted_zone_id,
     name=A_Record_name,
@@ -454,5 +494,5 @@ A_Record = aws.route53.Record("A_Record",
     aliases=[{
         "name" : load_balancer.dns_name,
         "zoneId" : load_balancer.zone_id,
-        "evaluateTargetHealth" : True,
+        "evaluateTargetHealth" : A_Record_evalTargetHealth,
     }])
