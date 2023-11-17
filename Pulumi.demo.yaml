@@ -1,16 +1,14 @@
 config:
   aws:profile: demo
   aws:region: us-west-1
-  iac-pulumi:A_Record_TTL: "60"
   iac-pulumi:A_Record_name: demo.shivanishah.me
   iac-pulumi:asg_cooldown: "60"
   iac-pulumi:asg_desired: "1"
   iac-pulumi:asg_max: "3"
   iac-pulumi:asg_min: "1"
   iac-pulumi:asg_tag: csye6225-application-sg
-  iac-pulumi:delete_on_termination: "True"
-  iac-pulumi:disable_api_termination: "False"
-  iac-pulumi:ec2_tag: csye6225-ec2
+  iac-pulumi:delete_on_termination: "true"
+  iac-pulumi:device_name: /dev/xvda
   iac-pulumi:egress_cidr: 0.0.0.0/0
   iac-pulumi:egress_port: "0"
   iac-pulumi:hosted_zone_id: Z01309002CW9S7IXYJ9LJ
@@ -22,8 +20,10 @@ config:
   iac-pulumi:instance_ami: ami-0dfac44abaacc2aab
   iac-pulumi:instance_type: t2.micro
   iac-pulumi:key_name: aws-demo-keypair
+  iac-pulumi:key1: Application
   iac-pulumi:launch_template_public_ip: "true"
   iac-pulumi:lb_sg_tag: csye6225-load-balancer-sg
+  iac-pulumi:lb_tag: csye6225-load-balancer
   iac-pulumi:parameter_group_tag: csye6225-rds-pg
   iac-pulumi:private_rt_tag_name: csye6225-private-rt
   iac-pulumi:private_subnet1: 10.0.100.0/24
@@ -49,6 +49,7 @@ config:
   iac-pulumi:sg_cidr: 0.0.0.0/0
   iac-pulumi:userdata_group: csye6225
   iac-pulumi:userdata_user: csye6225
+  iac-pulumi:value1: webapp
   iac-pulumi:volume_size: "25"
   iac-pulumi:volume_type: gp2
   iac-pulumi:vpc_cidr_block: 10.0.0.0/16

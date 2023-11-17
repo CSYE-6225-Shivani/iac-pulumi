@@ -11,7 +11,6 @@ key_name = config.require("key_name")
 instance_type = config.require("instance_type")
 instance_ami = config.require("instance_ami")
 asg_tag = config.require("asg_tag")
-ec2_tag = config.require("ec2_tag")
 igw_tag_name = config.require("igw_tag_name")
 private_rt_tag_name = config.require("private_rt_tag_name")
 private_subnet1 = config.require("private_subnet1")
@@ -31,7 +30,6 @@ ingress_port_4 = config.require("ingress_port_4")
 egress_port = config.require("egress_port")
 egress_cidr = config.require("egress_cidr")
 delete_on_termination = config.require("delete_on_termination")
-disable_api_termination = config.require("disable_api_termination")
 volume_size = config.require("volume_size")
 volume_type = config.require("volume_type")
 rds_tag = config.require("rds_tag")
@@ -52,13 +50,16 @@ userdata_group = config.require("userdata_group")
 parameter_group_tag = config.require("parameter_group_tag")
 hosted_zone_id = config.require("hosted_zone_id")
 A_Record_name = config.require("A_Record_name")
-A_Record_TTL = config.require("A_Record_TTL")
 lb_sg_tag = config.require("lb_sg_tag")
 launch_template_public_ip = config.require("launch_template_public_ip")
 asg_desired = config.require("asg_desired")
 asg_max = config.require("asg_max")
 asg_min = config.require("asg_min")
 asg_cooldown = config.require("asg_cooldown")
+device_name = config.require("device_name")
+key1 = config.require("key1")
+value1 = config.require("value1")
+lb_tag = config.require("lb_tag")
 
 PUBLIC_SUBNETS = [public_subnet1, public_subnet2, public_subnet3]
 PRIVATE_SUBNETS = [private_subnet1, private_subnet2, private_subnet3]
@@ -297,13 +298,6 @@ generate_user_data = rds_instance.endpoint.apply(user_data)
 # encode user data to use it in launch template
 encoded_user_data = generate_user_data.apply(lambda data: base64.b64encode(data.encode()).decode())
 
-# Create instance root block device
-root_block_device = aws.ec2.InstanceRootBlockDeviceArgs(
-    volume_size=volume_size,  # Root Volume Size
-    volume_type=volume_type,  # Root Volume Type
-    delete_on_termination=delete_on_termination,
-)
-
 # Create IAM role for CloudWatch
 cloudwatch_role = aws.iam.Role("my-cloudwatch-role",
     assume_role_policy="""{
@@ -333,6 +327,14 @@ cloudwatch_instance_profile = aws.iam.InstanceProfile("my-cloudwatch-instance-pr
 
 # Creating a launch template for auto scaling
 autoscaling_launch_template = aws.ec2.LaunchTemplate("autoscaling-launch-template",
+    block_device_mappings=[aws.ec2.LaunchTemplateBlockDeviceMappingArgs(
+        device_name=device_name,
+        ebs=aws.ec2.LaunchTemplateBlockDeviceMappingEbsArgs(
+            volume_size=volume_size,
+            volume_type=volume_type,
+            delete_on_termination=delete_on_termination,
+        ),
+    )],
     iam_instance_profile=aws.ec2.LaunchTemplateIamInstanceProfileArgs(
         name=cloudwatch_instance_profile.name
     ),
@@ -347,18 +349,51 @@ autoscaling_launch_template = aws.ec2.LaunchTemplate("autoscaling-launch-templat
     tag_specifications=[aws.ec2.LaunchTemplateTagSpecificationArgs(
         resource_type="instance",
         tags={
-            "test": "xyz",
-            "name" : "csye6225", 
+            key1 : value1, 
         },
     )],
     user_data=encoded_user_data,
     )
 
+# Create a list of public subnet ids
+public_subnet_ids = [subnet.id for subnet in public_subnets]
+
+load_balancer = aws.lb.LoadBalancer("webapp-alb",
+                                    load_balancer_type="application",
+                                    security_groups=[load_balancer_sg.id],
+                                    subnets = public_subnet_ids,
+                                    tags={
+                                        "Name" : lb_tag
+                                    })
+
+lb_target_group = aws.lb.TargetGroup("webapp-target-group",
+                                     port="5000",
+                                     protocol="HTTP",
+                                     vpc_id=myvpc.id,
+                                     health_check=aws.lb.TargetGroupHealthCheckArgs(
+                                         interval=30,
+                                         path="/healthz",
+                                         port="traffic-port",
+                                         protocol="HTTP",
+                                         timeout=10,
+                                     ))
+
+lb_listener = aws.lb.Listener("webapp-alb-listener",
+                              load_balancer_arn=load_balancer.arn,
+                              port=80,
+                              protocol="HTTP",
+                              default_actions=[aws.lb.ListenerDefaultActionArgs(
+                                  type="forward",
+                                  target_group_arn=lb_target_group.arn,
+                              )],
+                              )
+
 auto_scaling_group = aws.autoscaling.Group("auto-scaling-group",
     desired_capacity=asg_desired,
     max_size=asg_max,
     min_size=asg_min,
-    opts=pulumi.ResourceOptions(depends_on=[autoscaling_launch_template]),
+    target_group_arns=[lb_target_group.arn],
+    opts=pulumi.ResourceOptions(depends_on=[autoscaling_launch_template, rds_instance, lb_target_group]),
     launch_template=aws.autoscaling.GroupLaunchTemplateArgs(
         id=autoscaling_launch_template.id,
         version="$Latest",
@@ -367,39 +402,57 @@ auto_scaling_group = aws.autoscaling.Group("auto-scaling-group",
     tags=[
         {
             "key": "Name",
-            "value": "csye6225-asg",
-            "propagate_at_launch": True,
-        },
-        {
-            "key": "Application",
-            "value": "webapp",
+            "value": "csye6225-asg-ec2",
             "propagate_at_launch": True,
         },
     ],
 )
 
-# Create an EC2 instance with specified AMI, user data and many other important specifications
-EC2_instance = aws.ec2.Instance("my-instance",
-    ami=instance_ami,  # custom AMI ID
-    key_name=key_name,
-    instance_type=instance_type,
-    vpc_security_group_ids=[application_sg.id],  # Attach the security group
-    subnet_id=public_subnet.id,  # Specify the subnet ID
-    root_block_device= root_block_device,
-    user_data=generate_user_data,
-    opts=pulumi.ResourceOptions(depends_on=[rds_instance]),
-    iam_instance_profile=cloudwatch_instance_profile.name,
-    disable_api_termination=disable_api_termination,  # Protect against accidental termination
-    tags={
-        "Name": ec2_tag,
-    },
-)
+scale_up_policy = aws.autoscaling.Policy("scale-up-policy",
+                                         scaling_adjustment=1,
+                                         adjustment_type="ChangeInCapacity",
+                                         autoscaling_group_name=auto_scaling_group.name)
+
+scale_up_metric_alarm = aws.cloudwatch.MetricAlarm("scale-up-metric-alarm",
+                                                   comparison_operator="GreaterThanThreshold",
+                                                   evaluation_periods=2,
+                                                   metric_name="CPUUtilization",
+                                                   namespace="AWS/EC2",
+                                                   period=120,
+                                                   statistic="Average",
+                                                   threshold=5,
+                                                   dimensions={
+                                                       "AutoScalingGroupName" : auto_scaling_group.name
+                                                   },
+                                                   alarm_description="This metric triggers if average EC2 CPU Utilization is more than 5%",
+                                                   alarm_actions=[scale_up_policy.arn])
+
+scale_down_policy = aws.autoscaling.Policy("scale-down-policy",
+                                           scaling_adjustment=-1,
+                                           adjustment_type="ChangeInCapacity",
+                                           autoscaling_group_name=auto_scaling_group.name)
+
+scale_down_metric_alarm = aws.cloudwatch.MetricAlarm("scale-down-metric-alarm",
+                                                     comparison_operator="LessThanThreshold",
+                                                     evaluation_periods=2,
+                                                     metric_name="CPUUtilization",
+                                                     namespace="AWS/EC2",
+                                                     period=120,
+                                                     statistic="Average",
+                                                     threshold=3,
+                                                     dimensions={
+                                                         "AutoScalingGroupName" : auto_scaling_group.name
+                                                     },
+                                                     alarm_description="This metric triggers if average EC2 CPU Utilization is less than 3%",
+                                                     alarm_actions=[scale_down_policy.arn])
 
 # Create A record for EC2 instance - point public id of the instance to a DNS
 A_Record = aws.route53.Record("A_Record",
     zone_id=hosted_zone_id,
     name=A_Record_name,
     type="A",
-    ttl=A_Record_TTL,
-    opts=pulumi.ResourceOptions(depends_on=[EC2_instance]),
-    records=[EC2_instance.public_ip])
+    aliases=[{
+        "name" : load_balancer.dns_name,
+        "zoneId" : load_balancer.zone_id,
+        "evaluateTargetHealth" : True,
+    }])
