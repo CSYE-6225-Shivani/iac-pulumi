@@ -496,3 +496,7 @@ A_Record = aws.route53.Record("A_Record",
         "zoneId" : load_balancer.zone_id,
         "evaluateTargetHealth" : A_Record_evalTargetHealth,
     }])
+
+# Create SNS topic
+
+sns_topic = aws.sns.Topic("sns-topic")
