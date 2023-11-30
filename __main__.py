@@ -91,6 +91,7 @@ su_metric_period = config.require("su_metric_period")
 su_metric_statistic = config.require("su_metric_statistic")
 su_metric_threshold = config.require("su_metric_threshold")
 lb_tg_healthport = config.require("lb_tg_healthport")
+region = pulumi.get_config("aws:region")
 
 PUBLIC_SUBNETS = [public_subnet1, public_subnet2, public_subnet3]
 PRIVATE_SUBNETS = [private_subnet1, private_subnet2, private_subnet3]
@@ -305,7 +306,7 @@ sns_topic = aws.sns.Topic("sns-topic")
 
 
 # Define user data to manipulate data on instance when it initializes for the first time
-def user_data(endpoint, sns_arn, rds_username, rds_password, rds_database, userdata_user, userdata_group):
+def user_data(endpoint, sns_arn, rds_username, rds_password, rds_database, userdata_user, userdata_group, region):
     user_data = f'''#!/bin/bash
 ENV_FILE="/opt/webapp.properties"
 echo "RDS_HOSTNAME={endpoint}" > ${{ENV_FILE}}
@@ -314,6 +315,7 @@ echo "RDS_PASSWORD={rds_password}" >> ${{ENV_FILE}}
 echo "RDS_DATABASE={rds_database}" >> ${{ENV_FILE}}
 echo "DATABASE_URL=postgresql://{rds_username}:{rds_password}@{endpoint}/{rds_database}" >> ${{ENV_FILE}}
 echo "SNS_TOPIC_ARN={sns_arn}" >> ${{ENV_FILE}}
+echo "REGION={region}" >> ${{ENV_FILE}}
 $(sudo chown {userdata_user}:{userdata_group} ${{ENV_FILE}})
 $(sudo chmod 400 ${{ENV_FILE}})
 $(sudo chown -R {userdata_user}:{userdata_group} /opt/webapp)
@@ -337,6 +339,7 @@ generate_user_data = pulumi.Output.all(
     rds_database,
     userdata_user,
     userdata_group,
+    region,
 ).apply(lambda args: user_data(*args))
 
 # encode user data to use it in autoscaling launch template
