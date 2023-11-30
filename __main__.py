@@ -313,7 +313,7 @@ echo "RDS_USERNAME={rds_username}" >> ${{ENV_FILE}}
 echo "RDS_PASSWORD={rds_password}" >> ${{ENV_FILE}}
 echo "RDS_DATABASE={rds_database}" >> ${{ENV_FILE}}
 echo "DATABASE_URL=postgresql://{rds_username}:{rds_password}@{endpoint}/{rds_database}" >> ${{ENV_FILE}}
-echo "SNS_TOPIC_ARN={sns_arn}" >> {{ENV_FILE}}
+echo "SNS_TOPIC_ARN={sns_arn}" >> ${{ENV_FILE}}
 $(sudo chown {userdata_user}:{userdata_group} ${{ENV_FILE}})
 $(sudo chmod 400 ${{ENV_FILE}})
 $(sudo chown -R {userdata_user}:{userdata_group} /opt/webapp)
