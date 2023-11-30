@@ -363,9 +363,14 @@ cloudwatch_role = aws.iam.Role("my-cloudwatch-role",
 )
 
 # Attach CloudWatchAgentServer policy to cloudwatch_role
-policy_attachment = aws.iam.PolicyAttachment("my-cloudwatch-policy",
+cloudwatch_policy_attachment = aws.iam.PolicyAttachment("my-cloudwatch-policy",
     policy_arn="arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy",
     roles=[cloudwatch_role.name],
+)
+
+sns_policy_attachment = aws.iam.PolicyAttachment("my-sns-policy",
+     policy_arn ="arn:aws:iam::aws:policy/AmazonSNSFullAccess",
+     roles=[cloudwatch_role.name],
 )
 
 # Create an IAM instance profile
