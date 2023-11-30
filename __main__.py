@@ -221,7 +221,7 @@ application_sg = aws.ec2.SecurityGroup("application_security_group",
             from_port=ingress_port_1,
             to_port=ingress_port_1,
             protocol="tcp",
-            security_groups=[load_balancer_sg.id],
+            cidr_blocks=[sg_cidr],
             ),
         aws.ec2.SecurityGroupIngressArgs(
             description="Allow traffic on port 5000",
@@ -300,8 +300,12 @@ rds_instance = aws.rds.Instance("rds_instance",
     vpc_security_group_ids = [database_sg.id])
 
 
+# Create SNS topic
+sns_topic = aws.sns.Topic("sns-topic")
+
+
 # Define user data to manipulate data on instance when it initializes for the first time
-def user_data(endpoint):
+def user_data(endpoint, sns_arn, rds_username, rds_password, rds_database, userdata_user, userdata_group):
     user_data = f'''#!/bin/bash
 ENV_FILE="/opt/webapp.properties"
 echo "RDS_HOSTNAME={endpoint}" > ${{ENV_FILE}}
@@ -309,6 +313,7 @@ echo "RDS_USERNAME={rds_username}" >> ${{ENV_FILE}}
 echo "RDS_PASSWORD={rds_password}" >> ${{ENV_FILE}}
 echo "RDS_DATABASE={rds_database}" >> ${{ENV_FILE}}
 echo "DATABASE_URL=postgresql://{rds_username}:{rds_password}@{endpoint}/{rds_database}" >> ${{ENV_FILE}}
+echo "SNS_TOPIC_ARN={sns_arn}" >> {{ENV_FILE}}
 $(sudo chown {userdata_user}:{userdata_group} ${{ENV_FILE}})
 $(sudo chmod 400 ${{ENV_FILE}})
 $(sudo chown -R {userdata_user}:{userdata_group} /opt/webapp)
@@ -323,8 +328,16 @@ $(sudo chown {userdata_user}:{userdata_group} /opt/amazon-cloudwatch-agent.json)
 '''
     return user_data
  
-# Store user data to a variable and call function user_data
-generate_user_data = rds_instance.endpoint.apply(user_data)
+# Store user data coming from other AWS resources to a variable and call the function user_data
+generate_user_data = pulumi.Output.all(
+    rds_instance.endpoint,
+    sns_topic.arn,
+    rds_username,
+    rds_password,
+    rds_database,
+    userdata_user,
+    userdata_group,
+).apply(lambda args: user_data(*args))
 
 # encode user data to use it in autoscaling launch template
 encoded_user_data = generate_user_data.apply(lambda data: base64.b64encode(data.encode()).decode())
@@ -496,7 +509,3 @@ A_Record = aws.route53.Record("A_Record",
         "zoneId" : load_balancer.zone_id,
         "evaluateTargetHealth" : A_Record_evalTargetHealth,
     }])
-
-# Create SNS topic
-
-sns_topic = aws.sns.Topic("sns-topic")
