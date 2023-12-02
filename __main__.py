@@ -1,6 +1,8 @@
 import pulumi
 import pulumi_aws as aws
+import pulumi_gcp as gcp
 import base64
+import json
 
 
 # Get data from pulumi profile config files
@@ -91,6 +93,18 @@ su_metric_period = config.require("su_metric_period")
 su_metric_statistic = config.require("su_metric_statistic")
 su_metric_threshold = config.require("su_metric_threshold")
 lb_tg_healthport = config.require("lb_tg_healthport")
+gcp_account_id = config.require("gcp_account_id")
+gcp_display_name = config.require("gcp_display_name")
+gcp_project = config.require("gcp_project")
+gcp_cloud_bucket = config.require("gcp_cloud_bucket")
+mailgun_domain = config.require("mailgun_domain")
+mailgun_api_key = config.require("mailgun_api_key")
+lambda_timeout = config.require("lambda_timeout")
+gcp_storage_role = config.require("gcp_storage_role")
+lambda_file = config.require("lambda_file")
+lambda_handler = config.require("lambda_handler")
+lambda_runtime = config.require("lambda_runtime")
+
 aws_config = pulumi.Config("aws")
 aws_region = aws_config.require("region")
 
@@ -363,14 +377,41 @@ cloudwatch_role = aws.iam.Role("my-cloudwatch-role",
 )
 
 # Attach CloudWatchAgentServer policy to cloudwatch_role
-cloudwatch_policy_attachment = aws.iam.PolicyAttachment("my-cloudwatch-policy",
+cloudwatch_policy_attachment = aws.iam.PolicyAttachment("cloudwatch-policy-attachment",
     policy_arn="arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy",
     roles=[cloudwatch_role.name],
 )
 
-sns_policy_attachment = aws.iam.PolicyAttachment("my-sns-policy",
-     policy_arn ="arn:aws:iam::aws:policy/AmazonSNSFullAccess",
+sns_policy_attachment = aws.iam.PolicyAttachment("sns-policy-attachment",
+     policy_arn="arn:aws:iam::aws:policy/AmazonSNSFullAccess",
      roles=[cloudwatch_role.name],
+)
+
+# Create an IAM role for Lambda
+lambda_role = aws.iam.Role("lambda-execution-role", 
+     assume_role_policy=json.dumps({
+    "Version": "2012-10-17",
+    "Statement": [{
+        "Action": "sts:AssumeRole",
+        "Effect": "Allow",
+        "Sid": "",
+        "Principal": {
+            "Service": "lambda.amazonaws.com",
+        },
+    }],
+})
+)
+
+# Attach the AWS managed policy to lambda_role
+lambda_policy_attachment = aws.iam.PolicyAttachment("lambda-policy-attachment",
+     policy_arn="arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+     roles=[lambda_role.name],
+)
+
+#  Attach the AWS managed policy to lambda_role
+dynamodb_lambda_policy_attachment = aws.iam.PolicyAttachment("dynamodb-lambda-policy-attachment",
+     policy_arn="arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess",
+     roles=[lambda_role.name],
 )
 
 # Create an IAM instance profile
@@ -517,4 +558,106 @@ A_Record = aws.route53.Record("A_Record",
         "name" : load_balancer.dns_name,
         "zoneId" : load_balancer.zone_id,
         "evaluateTargetHealth" : A_Record_evalTargetHealth,
-    }])
+    }]) 
+
+# Create gcp service account
+gcp_service_account = gcp.serviceaccount.Account("serviceAccount",
+    account_id=gcp_account_id,
+    display_name=gcp_display_name)
+
+# Extract the email using apply
+email = gcp_service_account.email.apply(lambda email: f"serviceAccount:{email}")
+
+# Grant 'roles/storage.admin' role to the service account
+storage_admin_role_binding = gcp.projects.IAMMember(
+    "grant-storage-admin-role",
+    member=email,
+    role=gcp_storage_role,
+    project=gcp_project,
+    opts=pulumi.ResourceOptions(depends_on=[gcp_service_account]),
+)
+
+# Creating service account key
+gcp_svc_key = gcp.serviceaccount.Key("serviceAccountKey",
+    service_account_id=gcp_service_account.name,)
+
+# DynamoDB Table
+dynamodb_user_table = aws.dynamodb.Table(
+    "userTable",
+    attributes=[
+        {"name": "id", "type": "S"},
+        {"name": "email", "type": "S"},
+        {"name": "submissionAttempt", "type": "S"},
+        {"name": "submissionUrl", "type": "S"},
+        {"name": "submissionId", "type": "S"},
+        {"name": "fileName", "type": "S"},
+    ],
+    hash_key="id",
+    read_capacity=1,
+    write_capacity=1,
+    global_secondary_indexes=[
+        {
+            "name": "EmailIndex",
+            "projection_type": "ALL",
+            "read_capacity": 1,
+            "write_capacity": 1,
+            "hash_key": "email",
+        },
+        {
+            "name": "SubmissionUrlIndex",
+            "projection_type": "ALL",
+            "read_capacity": 1,
+            "write_capacity": 1,
+            "hash_key": "submissionUrl",
+        },
+        {
+            "name": "SubmissionIdIndex",
+            "projection_type": "ALL",
+            "read_capacity": 1,
+            "write_capacity": 1,
+            "hash_key": "submissionId",
+        },
+        {
+            "name": "SubmissionAttemptIndex",
+            "projection_type": "ALL",
+            "read_capacity": 1,
+            "write_capacity": 1,
+            "hash_key": "submissionAttempt",
+        },
+        {
+            "name": "fileNameIndex",
+            "projection_type": "ALL",
+            "read_capacity": 1,
+            "write_capacity": 1,
+            "hash_key": "fileName",
+        },
+    ],
+)
+
+# Create lambda function
+func = aws.lambda_.Function("lambda-function",
+    code=pulumi.FileArchive(lambda_file),
+    role=lambda_role.arn,
+    handler=lambda_handler,
+    runtime=lambda_runtime,
+    timeout=lambda_timeout,
+    environment=aws.lambda_.FunctionEnvironmentArgs(
+        variables={
+            "GCP_BUCKET_NAME" : gcp_cloud_bucket,
+            "GOOGLE_CRED" : gcp_svc_key.private_key,
+            "MAILGUN_DOMAIN" : mailgun_domain,
+            "MAILGUN_API_KEY" : mailgun_api_key,
+            "DYNAMODB_TABLE_NAME" : dynamodb_user_table.name,
+            "AWS_REGION_DETAILS" : aws_region,
+
+        },
+))
+with_sns = aws.lambda_.Permission("withSns",
+    action="lambda:InvokeFunction",
+    function=func.name,
+    principal="sns.amazonaws.com",
+    source_arn=sns_topic.arn)
+lambda_ = aws.sns.TopicSubscription("lambda-subscription",
+    topic=sns_topic.arn,
+    protocol="lambda",
+    endpoint=func.arn)
