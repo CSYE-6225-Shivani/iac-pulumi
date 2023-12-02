@@ -1,6 +1,8 @@
 import pulumi
 import pulumi_aws as aws
+import pulumi_gcp as gcp
 import base64
+import json
 
 
 # Get data from pulumi profile config files
@@ -91,6 +93,20 @@ su_metric_period = config.require("su_metric_period")
 su_metric_statistic = config.require("su_metric_statistic")
 su_metric_threshold = config.require("su_metric_threshold")
 lb_tg_healthport = config.require("lb_tg_healthport")
+gcp_account_id = config.require("gcp_account_id")
+gcp_display_name = config.require("gcp_display_name")
+gcp_project = config.require("gcp_project")
+gcp_cloud_bucket = config.require("gcp_cloud_bucket")
+mailgun_domain = config.require("mailgun_domain")
+mailgun_api_key = config.require("mailgun_api_key")
+lambda_timeout = config.require("lambda_timeout")
+gcp_storage_role = config.require("gcp_storage_role")
+lambda_file = config.require("lambda_file")
+lambda_handler = config.require("lambda_handler")
+lambda_runtime = config.require("lambda_runtime")
+
+aws_config = pulumi.Config("aws")
+aws_region = aws_config.require("region")
 
 PUBLIC_SUBNETS = [public_subnet1, public_subnet2, public_subnet3]
 PRIVATE_SUBNETS = [private_subnet1, private_subnet2, private_subnet3]
@@ -221,7 +237,7 @@ application_sg = aws.ec2.SecurityGroup("application_security_group",
             from_port=ingress_port_1,
             to_port=ingress_port_1,
             protocol="tcp",
-            security_groups=[load_balancer_sg.id],
+            cidr_blocks=[sg_cidr],
             ),
         aws.ec2.SecurityGroupIngressArgs(
             description="Allow traffic on port 5000",
@@ -300,8 +316,12 @@ rds_instance = aws.rds.Instance("rds_instance",
     vpc_security_group_ids = [database_sg.id])
 
 
+# Create SNS topic
+sns_topic = aws.sns.Topic("sns-topic")
+
+
 # Define user data to manipulate data on instance when it initializes for the first time
-def user_data(endpoint):
+def user_data(endpoint, sns_arn, rds_username, rds_password, rds_database, userdata_user, userdata_group, aws_region):
     user_data = f'''#!/bin/bash
 ENV_FILE="/opt/webapp.properties"
 echo "RDS_HOSTNAME={endpoint}" > ${{ENV_FILE}}
@@ -309,6 +329,8 @@ echo "RDS_USERNAME={rds_username}" >> ${{ENV_FILE}}
 echo "RDS_PASSWORD={rds_password}" >> ${{ENV_FILE}}
 echo "RDS_DATABASE={rds_database}" >> ${{ENV_FILE}}
 echo "DATABASE_URL=postgresql://{rds_username}:{rds_password}@{endpoint}/{rds_database}" >> ${{ENV_FILE}}
+echo "SNS_TOPIC_ARN={sns_arn}" >> ${{ENV_FILE}}
+echo "REGION={aws_region}" >> ${{ENV_FILE}}
 $(sudo chown {userdata_user}:{userdata_group} ${{ENV_FILE}})
 $(sudo chmod 400 ${{ENV_FILE}})
 $(sudo chown -R {userdata_user}:{userdata_group} /opt/webapp)
@@ -323,8 +345,17 @@ $(sudo chown {userdata_user}:{userdata_group} /opt/amazon-cloudwatch-agent.json)
 '''
     return user_data
  
-# Store user data to a variable and call function user_data
-generate_user_data = rds_instance.endpoint.apply(user_data)
+# Store user data coming from other AWS resources to a variable and call the function user_data
+generate_user_data = pulumi.Output.all(
+    rds_instance.endpoint,
+    sns_topic.arn,
+    rds_username,
+    rds_password,
+    rds_database,
+    userdata_user,
+    userdata_group,
+    aws_region,
+).apply(lambda args: user_data(*args))
 
 # encode user data to use it in autoscaling launch template
 encoded_user_data = generate_user_data.apply(lambda data: base64.b64encode(data.encode()).decode())
@@ -346,9 +377,41 @@ cloudwatch_role = aws.iam.Role("my-cloudwatch-role",
 )
 
 # Attach CloudWatchAgentServer policy to cloudwatch_role
-policy_attachment = aws.iam.PolicyAttachment("my-cloudwatch-policy",
+cloudwatch_policy_attachment = aws.iam.PolicyAttachment("cloudwatch-policy-attachment",
     policy_arn="arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy",
     roles=[cloudwatch_role.name],
+)
+
+sns_policy_attachment = aws.iam.PolicyAttachment("sns-policy-attachment",
+     policy_arn="arn:aws:iam::aws:policy/AmazonSNSFullAccess",
+     roles=[cloudwatch_role.name],
+)
+
+# Create an IAM role for Lambda
+lambda_role = aws.iam.Role("lambda-execution-role", 
+     assume_role_policy=json.dumps({
+    "Version": "2012-10-17",
+    "Statement": [{
+        "Action": "sts:AssumeRole",
+        "Effect": "Allow",
+        "Sid": "",
+        "Principal": {
+            "Service": "lambda.amazonaws.com",
+        },
+    }],
+})
+)
+
+# Attach the AWS managed policy to lambda_role
+lambda_policy_attachment = aws.iam.PolicyAttachment("lambda-policy-attachment",
+     policy_arn="arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+     roles=[lambda_role.name],
+)
+
+#  Attach the AWS managed policy to lambda_role
+dynamodb_lambda_policy_attachment = aws.iam.PolicyAttachment("dynamodb-lambda-policy-attachment",
+     policy_arn="arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess",
+     roles=[lambda_role.name],
 )
 
 # Create an IAM instance profile
@@ -495,4 +558,106 @@ A_Record = aws.route53.Record("A_Record",
         "name" : load_balancer.dns_name,
         "zoneId" : load_balancer.zone_id,
         "evaluateTargetHealth" : A_Record_evalTargetHealth,
-    }])
+    }]) 
+
+# Create gcp service account
+gcp_service_account = gcp.serviceaccount.Account("serviceAccount",
+    account_id=gcp_account_id,
+    display_name=gcp_display_name)
+
+# Extract the email using apply
+email = gcp_service_account.email.apply(lambda email: f"serviceAccount:{email}")
+
+# Grant 'roles/storage.admin' role to the service account
+storage_admin_role_binding = gcp.projects.IAMMember(
+    "grant-storage-admin-role",
+    member=email,
+    role=gcp_storage_role,
+    project=gcp_project,
+    opts=pulumi.ResourceOptions(depends_on=[gcp_service_account]),
+)
+
+# Creating service account key
+gcp_svc_key = gcp.serviceaccount.Key("serviceAccountKey",
+    service_account_id=gcp_service_account.name,)
+
+# DynamoDB Table
+dynamodb_user_table = aws.dynamodb.Table(
+    "userTable",
+    attributes=[
+        {"name": "id", "type": "S"},
+        {"name": "email", "type": "S"},
+        {"name": "submissionAttempt", "type": "S"},
+        {"name": "submissionUrl", "type": "S"},
+        {"name": "submissionId", "type": "S"},
+        {"name": "fileName", "type": "S"},
+    ],
+    hash_key="id",
+    read_capacity=1,
+    write_capacity=1,
+    global_secondary_indexes=[
+        {
+            "name": "EmailIndex",
+            "projection_type": "ALL",
+            "read_capacity": 1,
+            "write_capacity": 1,
+            "hash_key": "email",
+        },
+        {
+            "name": "SubmissionUrlIndex",
+            "projection_type": "ALL",
+            "read_capacity": 1,
+            "write_capacity": 1,
+            "hash_key": "submissionUrl",
+        },
+        {
+            "name": "SubmissionIdIndex",
+            "projection_type": "ALL",
+            "read_capacity": 1,
+            "write_capacity": 1,
+            "hash_key": "submissionId",
+        },
+        {
+            "name": "SubmissionAttemptIndex",
+            "projection_type": "ALL",
+            "read_capacity": 1,
+            "write_capacity": 1,
+            "hash_key": "submissionAttempt",
+        },
+        {
+            "name": "fileNameIndex",
+            "projection_type": "ALL",
+            "read_capacity": 1,
+            "write_capacity": 1,
+            "hash_key": "fileName",
+        },
+    ],
+)
+
+# Create lambda function
+func = aws.lambda_.Function("lambda-function",
+    code=pulumi.FileArchive(lambda_file),
+    role=lambda_role.arn,
+    handler=lambda_handler,
+    runtime=lambda_runtime,
+    timeout=lambda_timeout,
+    environment=aws.lambda_.FunctionEnvironmentArgs(
+        variables={
+            "GCP_BUCKET_NAME" : gcp_cloud_bucket,
+            "GOOGLE_CRED" : gcp_svc_key.private_key,
+            "MAILGUN_DOMAIN" : mailgun_domain,
+            "MAILGUN_API_KEY" : mailgun_api_key,
+            "DYNAMODB_TABLE_NAME" : dynamodb_user_table.name,
+            "AWS_REGION_DETAILS" : aws_region,
+
+        },
+))
+with_sns = aws.lambda_.Permission("withSns",
+    action="lambda:InvokeFunction",
+    function=func.name,
+    principal="sns.amazonaws.com",
+    source_arn=sns_topic.arn)
+lambda_ = aws.sns.TopicSubscription("lambda-subscription",
+    topic=sns_topic.arn,
+    protocol="lambda",
+    endpoint=func.arn)
