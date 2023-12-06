@@ -37,14 +37,14 @@ config:
   iac-pulumi:lambda_timeout: "20"
   iac-pulumi:launch_template_public_ip: "true"
   iac-pulumi:lb_listener_action_type: forward
-  iac-pulumi:lb_listener_port: "80"
-  iac-pulumi:lb_listener_protocol: HTTP
+  iac-pulumi:lb_listener_port: "443"
+  iac-pulumi:lb_listener_protocol: HTTPS
   iac-pulumi:lb_sg_tag: csye6225-load-balancer-sg
   iac-pulumi:lb_tag: csye6225-load-balancer
   iac-pulumi:lb_tg_healthport: traffic-port
   iac-pulumi:lb_tg_interval: "30"
   iac-pulumi:lb_tg_path: /healthz
-  iac-pulumi:lb_tg_port: 5000
+  iac-pulumi:lb_tg_port: "5000"
   iac-pulumi:lb_tg_protocol: HTTP
   iac-pulumi:lb_tg_timeout: "10"
   iac-pulumi:lb_type: application
@@ -83,6 +83,7 @@ config:
   iac-pulumi:sd_metric_statistic: Average
   iac-pulumi:sd_metric_threshold: "3"
   iac-pulumi:sg_cidr: 0.0.0.0/0
+  iac-pulumi:ssl_certificate: arn:aws:acm:us-west-1:565981456023:certificate/5d0b44aa-abed-443f-afbc-b2b1f7c22e03
   iac-pulumi:su_metric_comparison: GreaterThanThreshold
   iac-pulumi:su_metric_eval_period: "2"
   iac-pulumi:su_metric_name: CPUUtilization
