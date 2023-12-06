@@ -159,6 +159,10 @@ Below are the resources that gets created through this code:
         - vpc_cidr_block
         - vpc_tag_name
 
+-  Add SSL certificate from an SSL vendor outside AWS to AWS Certificate Manager:
+
+       aws acm import-certificate --certificate fileb://<certificate>.pem --certificate-chain fileb://<certificate_chain_name>.pem --private-key fileb://<private_key_name>.pem
+
 - Once everything look okay, run below command to build your infrastructure:
         
        pulumi up

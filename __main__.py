@@ -104,6 +104,7 @@ gcp_storage_role = config.require("gcp_storage_role")
 lambda_file = config.require("lambda_file")
 lambda_handler = config.require("lambda_handler")
 lambda_runtime = config.require("lambda_runtime")
+ssl_certificate = config.require("ssl_certificate")
 
 aws_config = pulumi.Config("aws")
 aws_region = aws_config.require("region")
@@ -478,6 +479,7 @@ lb_listener = aws.lb.Listener("webapp-alb-listener",
                               load_balancer_arn=load_balancer.arn,
                               port=lb_listener_port,
                               protocol=lb_listener_protocol,
+                              certificate_arn = ssl_certificate,
                               default_actions=[aws.lb.ListenerDefaultActionArgs(
                                   type=lb_listener_action_type,
                                   target_group_arn=lb_target_group.arn,
