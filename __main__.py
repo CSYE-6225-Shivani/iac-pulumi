@@ -444,7 +444,7 @@ autoscaling_launch_template = aws.ec2.LaunchTemplate("autoscaling-launch-templat
     tag_specifications=[aws.ec2.LaunchTemplateTagSpecificationArgs(
         resource_type="instance",
         tags={
-            key1 : value1, 
+            key1 : value1,
         },
     )],
     user_data=encoded_user_data,
