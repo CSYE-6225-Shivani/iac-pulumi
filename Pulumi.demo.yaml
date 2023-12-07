@@ -83,7 +83,7 @@ config:
   iac-pulumi:sd_metric_statistic: Average
   iac-pulumi:sd_metric_threshold: "3"
   iac-pulumi:sg_cidr: 0.0.0.0/0
-  iac-pulumi:ssl_certificate: arn:aws:acm:us-west-1:565981456023:certificate/5d0b44aa-abed-443f-afbc-b2b1f7c22e03
+  iac-pulumi:ssl_certificate: arn:aws:acm:us-west-1:359865058304:certificate/ffd8f8c8-30dc-42e5-8a85-2ebdef56aee2
   iac-pulumi:su_metric_comparison: GreaterThanThreshold
   iac-pulumi:su_metric_eval_period: "2"
   iac-pulumi:su_metric_name: CPUUtilization
