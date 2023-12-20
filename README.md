@@ -1,5 +1,7 @@
 # Cloud-Native Flask API on AWS using IaC
+This project exemplifies a backend-focused assignment management system, leveraging cloud technology for scalability and efficiency. Seamlessly executing CRUD operations, it ensures a dynamic and user-friendly experience. The system integrates with Google Cloud Platform (GCP) for secure student submission uploads to cloud storage and sends automated email notifications providing submission status updates to student.
 
+## About this repository
 This repository contains code for building the infrastructure on AWS through Pulumi.
 
 ## Use with Related Repositories
