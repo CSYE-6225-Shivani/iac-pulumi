@@ -24,14 +24,14 @@ This repository contains code for building the infrastructure on AWS through Pul
 
 
 ## Setting up webapp, iac-pulumi, and serverless repositiories
-1. Clone webapp repository (assuming that it is set up as guided in its documentation)
-2. Clone iac-pulumi repository and follow documentation in [pulumi](./pulumi.md)
-3. Clone serverless respository and follow instructions in its README.md
+1. Clone webapp repository (assuming that it is set up as guided in its [documentation](https://github.com/CSYE-6225-Shivani/webapp/blob/main/webapp.md))
+2. Clone iac-pulumi repository and follow documentation in [pulumi.md](./pulumi.md)
+3. Clone serverless respository and follow instructions in its [serverless.md](https://github.com/CSYE-6225-Shivani/serverless/blob/main/serverless.md)
 
 ## How do these repositories work together:
 > Clone all three repositories. You just need to have prerequisites for pulumi on your local.
 
-1. Set up everything as explained in [pulumi](./pulumi.md) locally
+1. Set up everything as explained in [pulumi.md](./pulumi.md) locally
 2. You need to have following things on your system:
      - Pulumi
      - AWS CLI
