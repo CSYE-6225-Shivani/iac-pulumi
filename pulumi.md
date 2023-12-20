@@ -16,6 +16,10 @@ This repository contains code that creates infrastructure based on AWS profile a
 - Add your domain to this website (eg: my_name.me)
 - Make sure to add the DKIM, SPF, MX, and CNAME records from this website to your root account
 
+Root account hosted zone records should look something like this:
+
+![Alt text](<Root records.png>)
+
 ## Lambda function requirement
 - Clone [Lambda](https://github.com/CSYE-6225-Shivani/serverless) repository
 - Follow instructions in [README.md](https://github.com/CSYE-6225-Shivani/serverless/blob/main/README.md)

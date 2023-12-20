@@ -44,4 +44,4 @@ This repository contains code for building the infrastructure on AWS through Pul
 
 6. Run the `pulumi up` command from your pulumi code folder and it should build your infrastructure (verify that `instance_ami` passed in the pulumi config file is valid)
 
-7. Once the infrastructure is up, now if you push any changes to webapp repository and merge the pull request, GitHub Worflow Action will automatically change AMI used by ASG to the newly built AMI
+7. Once the infrastructure is up, if you now push any changes to webapp repository and merge the pull request, GitHub Worflow Action will automatically change AMI used by ASG to the newly built AMI
