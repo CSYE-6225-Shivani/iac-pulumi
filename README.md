@@ -3,6 +3,8 @@ This project exemplifies a backend-focused assignment management system, leverag
 
 ## About this repository
 This repository contains code for building the infrastructure on AWS through Pulumi.
+> [!IMPORTANT]
+> Read through [pulumi.md](./pulumi.md) documentation for detailed information on setting up pulumi respository
 
 ## Use with Related Repositories
 
@@ -21,8 +23,6 @@ This repository contains code for building the infrastructure on AWS through Pul
 | **Version Control**          | Git                                                     |
 | **CI/CD**                    | GitHub Actions                                          |
 | **Additional Tools**         | Mailgun, Google Cloud Platform (GCP)                     |
-
-## Read through [pulumi](./pulumi.md) documentation for detailed information on setting up pulumi respository.
 
 
 ## Setting up webapp, iac-pulumi, and serverless repositiories
