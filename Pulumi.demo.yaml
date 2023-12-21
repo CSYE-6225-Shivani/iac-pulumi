@@ -17,9 +17,9 @@ config:
   iac-pulumi:egress_cidr: 0.0.0.0/0
   iac-pulumi:egress_port: "0"
   iac-pulumi:gcp_account_id: demosvc
-  iac-pulumi:gcp_cloud_bucket: dev-bucket-csye6225
+  iac-pulumi:gcp_cloud_bucket: demo-bucket-csye6225
   iac-pulumi:gcp_display_name: Demo Service Account
-  iac-pulumi:gcp_project: csye6225-dev-406808
+  iac-pulumi:gcp_project: csye6225-demo-406808
   iac-pulumi:gcp_storage_role: roles/storage.objectUser
   iac-pulumi:hosted_zone_id: Z01309002CW9S7IXYJ9LJ
   iac-pulumi:igw_tag_name: csye6225-igw
